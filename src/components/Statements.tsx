@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Statement from './Statement';
-import { SymbolMap } from '../types';
+import { Equation, SymbolMap } from '../types';
 import { Box } from '@mui/material';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 
@@ -16,6 +16,7 @@ const Statements: React.FC<StatementsProps> = (props) => {
 
     const [numStatements, setNumStatements] = useState<number>(DEFAULT_NUM_STATEMENTS);
     const [symbolMaps, setSymbolMaps] = useState<Map<number, Set<string>>>(new Map());
+    const [substitution, setSubstitution] = useState<Equation>();
 
     useEffect(() => {
         const symbols: Set<string> = new Set();
@@ -42,6 +43,8 @@ const Statements: React.FC<StatementsProps> = (props) => {
                         })
                     }}
                     setSymbol={setSymbol}
+                    substitution={substitution}
+                    setSubstitution={(substitution: Equation | undefined) => setSubstitution(substitution)}
                 />
             ))}
             <AddCircleIcon

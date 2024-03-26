@@ -6,16 +6,19 @@ import WarningIcon from '@mui/icons-material/Warning';
 import { Autocomplete, Box, ClickAwayListener, Input, Popper, Tooltip } from '@mui/material';
 import { simplifyExpression, solveEquation } from 'mathsteps';
 import { SymbolMap, Simplification, Expression, Equation, KnownMap } from '../types';
+import MoveDownIcon from '@mui/icons-material/MoveDown';
 
-interface MathFieldProps {
+interface StatementProps {
     index: number;
     symbolMap: SymbolMap;
     setSymbol: (symbol: string, value: number | undefined, given: boolean) => void;
     changeSymbols: (symbols: Set<string>) => void;
+    substitution: Equation | undefined;
+    setSubstitution: (substitution: Equation | undefined) => void;
 }
 
-const Statement: React.FC<MathFieldProps> = (props) => {
-    const { index, symbolMap, setSymbol, changeSymbols } = props;
+const Statement: React.FC<StatementProps> = (props) => {
+    const { index, symbolMap, setSymbol, changeSymbols, substitution, setSubstitution } = props;
     
     const [latex, setLatex] = useState<string>('');
     const [node, setNode] = useState<Expression | Equation | undefined>(undefined);
@@ -49,6 +52,16 @@ const Statement: React.FC<MathFieldProps> = (props) => {
         }
 
         return ''
+    }
+
+    const isSubstitutable = () => {
+        // Check if equation
+        if (!node || !node.right) return false;
+
+        // Check if left side is a symbol
+        if (!math.isSymbolNode(node.left)) return false;
+
+        return true;
     }
 
     const splitEquation = (latex: string) => {
@@ -259,6 +272,8 @@ const Statement: React.FC<MathFieldProps> = (props) => {
     }
 
     useEffect(() => {
+        setSubstitution(undefined);
+
         if (isEquation(latex)) {
             const { left, right } = splitEquation(latex);
 
@@ -306,92 +321,135 @@ const Statement: React.FC<MathFieldProps> = (props) => {
         evaluate(symbols);
     }, [symbolMap]);
 
-    return (
-        <>
-            <Box className="flex flex-col mb-5">
-                <ClickAwayListener onClickAway={() => setSearchAnchor(null)}>
-                    <Box className="flex justify-center items-center w-52">
-                        <Box className="w-10">
-                            {warning && 
-                                <Tooltip title={warning}>
-                                    <WarningIcon 
-                                        color={warning.indexOf("Equation is false") ? "warning" : "error"}
-                                        className="mr-2"
-                                    />
-                                </Tooltip>
-                            }
-                        </Box>
-                        <Box id={"popper-anchor-" + index} position="relative" left="190px" top="25px" />
-                        <EditableMathField
-                            latex={latex}
-                            onChange={(mathField) => { setLatex(mathField.latex()); }}
-                            className="w-full !border-gray-300 rounded p-2"
-                            // onMouseOver={(e) => {
-                            //     const target = e.nativeEvent.target as HTMLElement;
-                            //     const relatedTarget = e.nativeEvent.relatedTarget as HTMLElement;
-                            //     if (!target && !relatedTarget) return;
-                            //     if (target.classList.contains('mq-root-block')
-                            //         || target.classList.contains('mq-textarea')
-                            //         || target.classList.contains('mq-editable-field')) return;
+    // useEffect(() => {
+    //     if (!substitution || !node) return;
 
-                            //     target.style.backgroundColor = 'red';
-                            //     relatedTarget.style.backgroundColor = 'transparent';
-                            //     console.log(target);
-                            // }}
-                            onClick={(e) => {
-                                // setSearchAnchor(e.currentTarget);
-                                setSearchAnchor(document.getElementById('popper-anchor-' + index));
-                            }}
-                        />
-                        <Popper
-                            open={Boolean(searchAnchor)}
-                            anchorEl={searchAnchor}
-                            // modifiers={[
-                            //     {
-                            //         name: 'offset',
-                            //         options: {
-                            //             offset: [105, 5],
-                            //         }
-                            //     }
-                            // ]}
-                        >
-                            <Autocomplete
-                                open
-                                multiple
-                                value={[]}
-                                onClose={() => {}}
-                                onChange={(_event, value, reason) => {
-                                    if (reason !== 'selectOption') return;
-                                    setLatex(value[0].after);
-                                }}
-                                renderTags={() => null}
-                                noOptionsText="No simplifications found"
-                                renderOption={(props, option) => (
-                                    <li {...props}>
-                                        <Box> {option.name} </Box>
-                                        <Box>:&nbsp;</Box>
-                                        <StaticMathField>{option.before}</StaticMathField>
-                                        <Box>&nbsp;-&#62;&nbsp;</Box>
-                                        <StaticMathField>{option.after}</StaticMathField>
-                                    </li>
-                                )}
-                                options={simplifications}
-                                getOptionLabel={(option) => option.name + ': ' + option.before + ' -> ' + option.after}
-                                renderInput={(params) => (
-                                    <Input
-                                        ref={params.InputProps.ref}
-                                        inputProps={params.inputProps}
-                                        placeholder="Search"
-                                        // sx={{ width: 600 }}
-                                        className="w-96 bg-white"
-                                    />
-                                )}
-                            />
-                        </Popper>
+    //     const transform = (node: math.MathNode) => {
+    //         const { left: symbol, right: value } = substitution;
+    //         return node.transform(n => n.equals(symbol) ? value : n);
+    //     }
+
+    //     const left = transform(node.left);
+    //     const right = node.right && transform(node.right);
+
+    //     const latex = right ? toLatex(left) + '=' + toLatex(right) : toLatex(left);
+    //     setLatex(latex);
+    // }, [substitution]);
+
+    return (
+        <Box className="flex flex-col mb-5">
+            <ClickAwayListener onClickAway={() => setSearchAnchor(null)}>
+                <Box className="flex justify-center items-center w-52">
+                    <Box className="w-10">
+                        {warning && 
+                            <Tooltip title={warning}>
+                                <WarningIcon 
+                                    color={warning.indexOf("Equation is false") ? "warning" : "error"}
+                                    className="mr-2"
+                                />
+                            </Tooltip>
+                        }
+                        {!warning && isSubstitutable() &&
+                            <Tooltip title="Substitute">
+                                <MoveDownIcon
+                                    color="action"
+                                    className="mr-2"
+                                    onMouseDown={() => {
+                                        // Check if equation
+                                        if (!node || !node.right) return;
+                        
+                                        // Check if left side is a symbol
+                                        if (!math.isSymbolNode(node.left)) return;
+                        
+                                        setSubstitution(node);
+                                    }}
+                                    onMouseUp={() => {
+                                        if (!substitution || !node) return;
+                        
+                                        const transform = (node: math.MathNode) => {
+                                            const { left: symbol, right: value } = substitution;
+                                            return node.transform(n => n.equals(symbol) ? value : n);
+                                        }
+                        
+                                        const left = transform(node.left);
+                                        const right = node.right && transform(node.right);
+                        
+                                        const latex = right ? toLatex(left) + '=' + toLatex(right) : toLatex(left);
+                                        setLatex(latex);
+                                    }}
+                                />
+                            </Tooltip>
+                        }
                     </Box>
-                </ClickAwayListener>
-            </Box>
-        </>
+                    <Box id={"popper-anchor-" + index} position="relative" left="190px" top="25px" />
+                    <EditableMathField
+                        latex={latex}
+                        onChange={(mathField) => { setLatex(mathField.latex()); }}
+                        className="w-full !border-gray-300 rounded p-2"
+                        // onMouseOver={(e) => {
+                        //     const target = e.nativeEvent.target as HTMLElement;
+                        //     const relatedTarget = e.nativeEvent.relatedTarget as HTMLElement;
+                        //     if (!target && !relatedTarget) return;
+                        //     if (target.classList.contains('mq-root-block')
+                        //         || target.classList.contains('mq-textarea')
+                        //         || target.classList.contains('mq-editable-field')) return;
+
+                        //     target.style.backgroundColor = 'red';
+                        //     relatedTarget.style.backgroundColor = 'transparent';
+                        //     console.log(target);
+                        // }}
+                        onClick={(e) => {
+                            // setSearchAnchor(e.currentTarget);
+                            setSearchAnchor(document.getElementById('popper-anchor-' + index));
+                        }}
+                    />
+                    <Popper
+                        open={Boolean(searchAnchor)}
+                        anchorEl={searchAnchor}
+                        // modifiers={[
+                        //     {
+                        //         name: 'offset',
+                        //         options: {
+                        //             offset: [105, 5],
+                        //         }
+                        //     }
+                        // ]}
+                    >
+                        <Autocomplete
+                            open
+                            multiple
+                            value={[]}
+                            onClose={() => {}}
+                            onChange={(_event, value, reason) => {
+                                if (reason !== 'selectOption') return;
+                                setLatex(value[0].after);
+                            }}
+                            renderTags={() => null}
+                            noOptionsText="No simplifications found"
+                            renderOption={(props, option) => (
+                                <li {...props}>
+                                    <Box> {option.name} </Box>
+                                    <Box>:&nbsp;</Box>
+                                    <StaticMathField>{option.before}</StaticMathField>
+                                    <Box>&nbsp;-&#62;&nbsp;</Box>
+                                    <StaticMathField>{option.after}</StaticMathField>
+                                </li>
+                            )}
+                            options={simplifications}
+                            getOptionLabel={(option) => option.name + ': ' + option.before + ' -> ' + option.after}
+                            renderInput={(params) => (
+                                <Input
+                                    ref={params.InputProps.ref}
+                                    inputProps={params.inputProps}
+                                    placeholder="Search"
+                                    className="w-96 bg-white"
+                                />
+                            )}
+                        />
+                    </Popper>
+                </Box>
+            </ClickAwayListener>
+        </Box>
     );
 };
 
