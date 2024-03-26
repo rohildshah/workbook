@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Statement from './Statement';
 import { SymbolMap } from '../types';
+import { Box } from '@mui/material';
 
 type StatementsProps = {
     symbolMap: SymbolMap;
@@ -27,18 +28,20 @@ const Statements: React.FC<StatementsProps> = (props) => {
     }, [symbolMaps]);
 
     return (
-        Array.from({ length: NUM_STATEMENTS }).map((_, i) => (
-            <Statement
-                key={i}
-                symbolMap={symbolMap}
-                changeSymbols={(symbolMap: Set<string>) => {
-                    setSymbolMaps((prevSymbolMaps: Map<number, Set<string>>) => {
-                        return new Map(prevSymbolMaps).set(i, symbolMap);
-                    })
-                }}
-                setSymbol={setSymbol}
-            />
-        ))
+        <Box className="flex flex-col">
+            {Array.from({ length: NUM_STATEMENTS }).map((_, i) => (
+                <Statement
+                    key={i}
+                    symbolMap={symbolMap}
+                    changeSymbols={(symbolMap: Set<string>) => {
+                        setSymbolMaps((prevSymbolMaps: Map<number, Set<string>>) => {
+                            return new Map(prevSymbolMaps).set(i, symbolMap);
+                        })
+                    }}
+                    setSymbol={setSymbol}
+                />
+            ))}
+        </Box>
     );
 };
 

@@ -4,6 +4,7 @@ import { addStyles } from 'react-mathquill'
 import SymbolTable from './components/SymbolTable';
 import Statements from './components/Statements';
 import { SymbolMap } from './types';
+import { Box } from '@mui/material';
 
 function App() {
     const [symbolMap, setSymbolMap] = useState<SymbolMap>(new Map());
@@ -27,12 +28,10 @@ function App() {
     }
 
     return (
-        <>
-            <div className="flex flex-col justify-center items-center h-screen">
-                <SymbolTable symbolMap={symbolMap} setSymbol={setSymbol} />
-                <Statements symbolMap={symbolMap} setSymbol={setSymbol} changeSymbols={changeSymbols} />
-            </div>
-        </>
+        <Box className="flex flex-row place-content-between p-10">
+            <Statements symbolMap={symbolMap} setSymbol={setSymbol} changeSymbols={changeSymbols} />
+            <SymbolTable symbolMap={symbolMap} setSymbol={setSymbol} />
+        </Box>
     )
 }
 

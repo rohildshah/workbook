@@ -307,9 +307,9 @@ const Statement: React.FC<MathFieldProps> = (props) => {
 
     return (
         <>
-            <div className="flex flex-col mb-5">
+            <Box className="flex flex-col mb-5">
                 <ClickAwayListener onClickAway={() => setSearchAnchor(null)}>
-                    <div className="flex justify-center items-center w-52">
+                    <Box className="flex justify-center items-center w-52">
                         <Box className="w-10">
                             {warning && 
                                 <Tooltip title={warning}>
@@ -377,9 +377,9 @@ const Statement: React.FC<MathFieldProps> = (props) => {
                                 )}
                             />
                         </Popper>
-                    </div>
+                    </Box>
                 </ClickAwayListener>
-            </div>
+            </Box>
         </>
     );
 };
