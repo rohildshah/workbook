@@ -1,4 +1,5 @@
-export type SymbolMap = Map<string, number | undefined>;
+export type SymbolMap = Map<string, { value: number | undefined, given: boolean }>;
+export type KnownMap = Map<string, { value: number, given: boolean }>;
 
 export type Simplification = {
     name: string,

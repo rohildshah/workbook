@@ -12,18 +12,15 @@ function App() {
         addStyles();
     }, []);
 
-    const setSymbol = (symbol: string, value: string) => {
-        const parsedValue = parseFloat(value);
-        const safeValue = isNaN(parsedValue) ? undefined : parsedValue;
-
-        setSymbolMap((prevSymbols) => new Map(prevSymbols).set(symbol, safeValue));
+    const setSymbol = (symbol: string, value: number | undefined, given: boolean) => {
+        setSymbolMap((prevSymbols) => new Map(prevSymbols).set(symbol, { value, given }));
     }
 
     const changeSymbols = (symbols: Set<string>) => {
         const newSymbolMap: SymbolMap = new Map();
 
         symbols.forEach((symbol) => {
-            newSymbolMap.set(symbol, symbolMap.get(symbol));
+            newSymbolMap.set(symbol, symbolMap.get(symbol) ?? { value: undefined, given: false });
         })
 
         setSymbolMap(newSymbolMap);

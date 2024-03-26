@@ -5,12 +5,12 @@ import math from 'tex-math-parser/dist/customMath';
 import WarningIcon from '@mui/icons-material/Warning';
 import { Autocomplete, Box, Input, Tooltip } from '@mui/material';
 import { simplifyExpression, solveEquation } from 'mathsteps';
-import { SymbolMap, Simplification, Expression, Equation } from '../types';
+import { SymbolMap, Simplification, Expression, Equation, KnownMap } from '../types';
 import { isOperatorNode, isSymbolNode } from 'mathjs';
 
 interface MathFieldProps {
     symbolMap: SymbolMap;
-    setSymbol: (symbol: string, value: string) => void;
+    setSymbol: (symbol: string, value: number | undefined, given: boolean) => void;
     changeSymbols: (symbols: Set<string>) => void;
 }
 
@@ -62,7 +62,7 @@ const Statement: React.FC<MathFieldProps> = (props) => {
         try {
             const parsedTree = parseTex(String.raw`${latex}`);
 
-            const cleanedTree = parsedTree.transform((node, _path, _parent) => {
+            const cleanedTree = parsedTree.transform((node) => {
                 if (isOperatorNode(node) && node.op === String.raw`\cdot`) node.op = '*';
                 if (isOperatorNode(node) && node.op === String.raw`\frac`) node.op = '/';
     
@@ -165,92 +165,97 @@ const Statement: React.FC<MathFieldProps> = (props) => {
     const findSymbols = (tree: math.MathNode) => {
         const newSymbols: Set<string> = new Set();
 
-        tree.traverse(function (node, _path, _parent) {
+        tree.traverse(function (node) {
             if (isSymbolNode(node)) newSymbols.add(node.name);
         })
 
         return newSymbols
     }
 
-    const evaluateExpression = (node: Expression, knowns: { [key: string]: number }) => {
-        if (symbols.size !== Object.keys(knowns).length) return;
-        
-        const expression = node.left;
-
-        console.log(expression.evaluate(knowns));
-
-        // const steps = solveEquation('7x + 7y = 35');
-        // console.log(steps[4].newEquation.leftNode.toString() + '=' + steps[4].newEquation.rightNode.toString());
-    }
-
-    const evaluateEquation = (node: Equation, knowns: { [key: string]: number }) => {
-        if (symbols.size !== Object.keys(knowns).length + 1) return;
+    const replaceSymbols = (node: Equation, knowns: KnownMap) => {
         let { left, right } = node;
 
-        left = left.transform(function (node, _path, _parent) {
-            if (isSymbolNode(node) && knowns[node.name] !== undefined) {
-                // console.log(node.name, knowns[node.name])
-                // console.log(new math.ConstantNode(knowns[node.name]))
-                return new math.ConstantNode(knowns[node.name]);
-            } else {
-                return node;
-            }
+        left = left.transform(function (node) {
+            if (!isSymbolNode(node)) return node;
+
+            const value = knowns.get(node.name);
+            if (value == undefined) return node;
+
+            return new math.ConstantNode(Number(value.value));
         });
 
-        right = right.transform((node, _path, _parent) => {
-            if (isSymbolNode(node) && knowns[node.name] !== undefined) {
-                return new math.ConstantNode(knowns[node.name]);
-            }
-            return node;
+        right = right.transform((node) => {
+            if (!isSymbolNode(node)) return node;
+
+            const value = knowns.get(node.name);
+            if (value == undefined) return node;
+
+            return new math.ConstantNode(Number(value.value));
         });
 
-        const steps = solveEquation(toString(left) + '=' + toString(right));
-        // console.log(steps[steps.length - 1].newEquation.leftNode.toString() + '=' + steps[steps.length - 1].newEquation.rightNode.toString());
-
-        const lastStep = steps.length > 0 ? steps[steps.length - 1].newEquation : { leftNode: left, rightNode: right };
-        const symbol = lastStep.leftNode.toString();
-        const value = lastStep.rightNode.toString();
-
-        setSymbol(symbol, value);
+        return { left, right }
     }
 
-    useEffect(() => {
+    const evaluateExpression = (node: Expression, symbols: Set<string>, knowns: KnownMap) => {
+        if (symbols.size !== knowns.size) return;
+        
+        const expression = node.left;
+        const values = Object.fromEntries(Array.from(knowns, ([key, value]) => [key, value.value]));
+
+        console.log(expression.evaluate(values));
+    }
+
+    const evaluateEquation = (node: Equation, symbols: Set<string>, knowns: KnownMap) => {
+        const givens = new Map([...knowns].filter(([, value]) => value.given));
+
+        const evaluateAndSetSymbol = (knowns: KnownMap) => {
+            const { left, right } = replaceSymbols(node, knowns);
+            const steps = solveEquation(toString(left) + '=' + toString(right));
+
+            const lastStep = steps.length > 0 ? steps[steps.length - 1].newEquation : { leftNode: left, rightNode: right };
+            const symbol = lastStep.leftNode.toString();
+            const value = math.evaluate(toString(lastStep.rightNode.toString()));
+
+            if (symbolMap.get(symbol)?.given) return;
+            console.log(math.evaluate(toString(lastStep.rightNode)))
+            setSymbol(symbol, value, false);
+        }
+
+        if (knowns.size == symbols.size) {
+            const { left, right } = replaceSymbols(node, knowns);
+            const steps = solveEquation(toString(left) + '=' + toString(right));
+            const correct = steps.length === 0 || steps[steps.length - 1].changeType !== 'STATEMENT_IS_FALSE';
+
+            if (!correct && givens.size == symbols.size - 1) { // False but try to fix
+                evaluateAndSetSymbol(givens);
+            } else if (!correct) { // False but can't fix
+                setWarning('Equation is false');
+            } else {
+                setWarning('');
+            }
+        } else if (knowns.size == symbols.size - 1) {
+            evaluateAndSetSymbol(knowns);
+        } else {
+            // 
+        }
+    }
+
+    const evaluate = (symbols: Set<string>) => {
         if (!node) return;
 
-        const knowns: { [key: string]: number } = {};
-
+        const knowns: KnownMap = new Map();
+            
         symbols.forEach((symbol) => {
-            const value = symbolMap.get(symbol);
-            if (value !== undefined) knowns[symbol] = value;
+            const { value, given } = symbolMap.get(symbol) ?? { value: undefined, given: false };
+            if (value !== undefined) knowns.set(symbol, { value, given });
         });
 
         if (node.right) {
-            evaluateEquation(node, knowns);
+            evaluateEquation(node, symbols, knowns);
         } else {
-            evaluateExpression(node, knowns);
+            evaluateExpression(node, symbols, knowns);
         }
-    }, [symbolMap]);
-
-    useEffect(() => {
-        if (!node) {
-            setSimplifications([]);
-            setSymbols(new Set<string>());
-            return;
-        }
-
-        const { left: leftTree, right: rightTree } = node;
-        if (rightTree) { // Equation
-            setSimplifications(equationSimplifications(leftTree, rightTree));
-            setSymbols(new Set([...findSymbols(leftTree), ...findSymbols(rightTree)]));
-        } else { // Expression
-            setSimplifications(expressionSimplifications(leftTree));
-            setSymbols(findSymbols(leftTree));
-        }
-    }, [node])
-
-    useEffect(() => {
-        changeSymbols(symbols);
-    }, [symbols]);
+    }
 
     useEffect(() => {
         if (isEquation(latex)) {
@@ -269,13 +274,44 @@ const Statement: React.FC<MathFieldProps> = (props) => {
         }
     }, [latex]);
 
+    useEffect(() => {
+        if (!node) {
+            setSimplifications([]);
+            setSymbols(new Set<string>());
+            return;
+        }
+
+        const { left: leftTree, right: rightTree } = node;
+        if (rightTree) { // Equation
+            setSimplifications(equationSimplifications(leftTree, rightTree));
+
+            const symbols = new Set([...findSymbols(leftTree), ...findSymbols(rightTree)])
+            setSymbols(symbols);
+            evaluate(symbols);
+        } else { // Expression
+            setSimplifications(expressionSimplifications(leftTree));
+
+            const symbols = findSymbols(leftTree);
+            setSymbols(symbols);
+            evaluate(symbols);
+        }
+    }, [node])
+
+    useEffect(() => {
+        changeSymbols(symbols);
+    }, [symbols]);
+
+    useEffect(() => {
+        evaluate(symbols);
+    }, [symbolMap]);
+
     return (
         <>
             <div className="flex flex-col mb-5">
                 <div className="flex justify-center items-center">
                     {warning && 
                         <Tooltip title={warning}>
-                            <WarningIcon color="warning"/>    
+                            <WarningIcon color={warning.indexOf("Equation is false") ? "warning" : "error"}/>
                         </Tooltip>
                     }
                     <EditableMathField
@@ -309,7 +345,7 @@ const Statement: React.FC<MathFieldProps> = (props) => {
                     }}
                     renderTags={() => null}
                     noOptionsText="No simplifications found"
-                    renderOption={(props, option, { selected }) => (
+                    renderOption={(props, option) => (
                         <li {...props}>
                             <Box> {option.name} </Box>
                             <Box>:&nbsp;</Box>

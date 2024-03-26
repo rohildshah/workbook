@@ -4,7 +4,7 @@ import { SymbolMap } from '../types';
 
 type StatementsProps = {
     symbolMap: SymbolMap;
-    setSymbol: (symbol: string, value: string) => void;
+    setSymbol: (symbol: string, value: number | undefined, given: boolean) => void;
     changeSymbols: (symbols: Set<string>) => void;
 };
 
