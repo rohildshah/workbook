@@ -3,10 +3,9 @@ import { EditableMathField, StaticMathField } from 'react-mathquill';
 import { parseTex } from 'tex-math-parser'
 import math from 'tex-math-parser/dist/customMath';
 import WarningIcon from '@mui/icons-material/Warning';
-import { Autocomplete, Box, Input, Tooltip } from '@mui/material';
+import { Autocomplete, Box, ClickAwayListener, Input, Popper, Tooltip } from '@mui/material';
 import { simplifyExpression, solveEquation } from 'mathsteps';
 import { SymbolMap, Simplification, Expression, Equation, KnownMap } from '../types';
-import { isOperatorNode, isSymbolNode } from 'mathjs';
 
 interface MathFieldProps {
     symbolMap: SymbolMap;
@@ -22,6 +21,7 @@ const Statement: React.FC<MathFieldProps> = (props) => {
     const [symbols, setSymbols] = useState<Set<string>>(new Set());
     const [warning, setWarning] = useState<string>('');
     const [simplifications, setSimplifications] = useState<Simplification[]>([]);
+    const [searchAnchor, setSearchAnchor] = useState<null | HTMLElement>(null);
 
     const toLatex = (tree: math.MathNode) => {
         return tree.toTex()
@@ -63,8 +63,8 @@ const Statement: React.FC<MathFieldProps> = (props) => {
             const parsedTree = parseTex(String.raw`${latex}`);
 
             const cleanedTree = parsedTree.transform((node) => {
-                if (isOperatorNode(node) && node.op === String.raw`\cdot`) node.op = '*';
-                if (isOperatorNode(node) && node.op === String.raw`\frac`) node.op = '/';
+                if (math.isOperatorNode(node) && node.op === String.raw`\cdot`) node.op = '*';
+                if (math.isOperatorNode(node) && node.op === String.raw`\frac`) node.op = '/';
     
                 return node;
             });
@@ -166,7 +166,7 @@ const Statement: React.FC<MathFieldProps> = (props) => {
         const newSymbols: Set<string> = new Set();
 
         tree.traverse(function (node) {
-            if (isSymbolNode(node)) newSymbols.add(node.name);
+            if (math.isSymbolNode(node)) newSymbols.add(node.name);
         })
 
         return newSymbols
@@ -176,7 +176,7 @@ const Statement: React.FC<MathFieldProps> = (props) => {
         let { left, right } = node;
 
         left = left.transform(function (node) {
-            if (!isSymbolNode(node)) return node;
+            if (!math.isSymbolNode(node)) return node;
 
             const value = knowns.get(node.name);
             if (value == undefined) return node;
@@ -185,7 +185,7 @@ const Statement: React.FC<MathFieldProps> = (props) => {
         });
 
         right = right.transform((node) => {
-            if (!isSymbolNode(node)) return node;
+            if (!math.isSymbolNode(node)) return node;
 
             const value = knowns.get(node.name);
             if (value == undefined) return node;
@@ -308,63 +308,77 @@ const Statement: React.FC<MathFieldProps> = (props) => {
     return (
         <>
             <div className="flex flex-col mb-5">
-                <div className="flex justify-center items-center">
-                    {warning && 
-                        <Tooltip title={warning}>
-                            <WarningIcon color={warning.indexOf("Equation is false") ? "warning" : "error"}/>
-                        </Tooltip>
-                    }
-                    <EditableMathField
-                        latex={latex}
-                        onChange={(mathField) => { setLatex(mathField.latex()); }}
-                        // onMouseOver={(e) => {
-                        //     const target = e.nativeEvent.target as HTMLElement;
-                        //     const relatedTarget = e.nativeEvent.relatedTarget as HTMLElement;
-                        //     if (!target && !relatedTarget) return;
-                        //     if (target.classList.contains('mq-root-block')
-                        //         || target.classList.contains('mq-textarea')
-                        //         || target.classList.contains('mq-editable-field')) return;
+                <ClickAwayListener onClickAway={() => setSearchAnchor(null)}>
+                    <div className="flex justify-center items-center w-52">
+                        <Box className="w-10">
+                            {warning && 
+                                <Tooltip title={warning}>
+                                    <WarningIcon 
+                                        color={warning.indexOf("Equation is false") ? "warning" : "error"}
+                                        className="mr-2"
+                                    />
+                                </Tooltip>
+                            }
+                        </Box>
+                        <EditableMathField
+                            latex={latex}
+                            onChange={(mathField) => { setLatex(mathField.latex()); }}
+                            className="w-full !border-gray-300 rounded p-2"
+                            // onMouseOver={(e) => {
+                            //     const target = e.nativeEvent.target as HTMLElement;
+                            //     const relatedTarget = e.nativeEvent.relatedTarget as HTMLElement;
+                            //     if (!target && !relatedTarget) return;
+                            //     if (target.classList.contains('mq-root-block')
+                            //         || target.classList.contains('mq-textarea')
+                            //         || target.classList.contains('mq-editable-field')) return;
 
-                        //     target.style.backgroundColor = 'red';
-                        //     relatedTarget.style.backgroundColor = 'transparent';
-                        //     console.log(target);
-                        // }}
-                    />
-                    {/* <div className="flex flex-col">
-                        <p>latex: {latex}</p>
-                    </div> */}
-                </div>
-                <Autocomplete
-                    // open
-                    multiple
-                    value={[]}
-                    onClose={() => {}}
-                    onChange={(_event, value, reason) => {
-                        if (reason !== 'selectOption') return;
-                        setLatex(value[0].after);
-                    }}
-                    renderTags={() => null}
-                    noOptionsText="No simplifications found"
-                    renderOption={(props, option) => (
-                        <li {...props}>
-                            <Box> {option.name} </Box>
-                            <Box>:&nbsp;</Box>
-                            <StaticMathField>{option.before}</StaticMathField>
-                            <Box>&nbsp;-&#62;&nbsp;</Box>
-                            <StaticMathField>{option.after}</StaticMathField>
-                        </li>
-                    )}
-                    options={simplifications}
-                    getOptionLabel={(option) => option.name + ': ' + option.before + ' -> ' + option.after}
-                    renderInput={(params) => (
-                        <Input
-                            ref={params.InputProps.ref}
-                            inputProps={params.inputProps}
-                            placeholder="Search"
-                            sx={{ width: 600 }}
+                            //     target.style.backgroundColor = 'red';
+                            //     relatedTarget.style.backgroundColor = 'transparent';
+                            //     console.log(target);
+                            // }}
+                            onClick={(e) => {
+                                setSearchAnchor(e.currentTarget);
+                            }}
                         />
-                    )}
-                />
+                        <Popper
+                            open={Boolean(searchAnchor)}
+                            anchorEl={searchAnchor}
+                        >
+                            <Autocomplete
+                                open
+                                multiple
+                                value={[]}
+                                onClose={() => {}}
+                                onChange={(_event, value, reason) => {
+                                    if (reason !== 'selectOption') return;
+                                    setLatex(value[0].after);
+                                }}
+                                renderTags={() => null}
+                                noOptionsText="No simplifications found"
+                                renderOption={(props, option) => (
+                                    <li {...props}>
+                                        <Box> {option.name} </Box>
+                                        <Box>:&nbsp;</Box>
+                                        <StaticMathField>{option.before}</StaticMathField>
+                                        <Box>&nbsp;-&#62;&nbsp;</Box>
+                                        <StaticMathField>{option.after}</StaticMathField>
+                                    </li>
+                                )}
+                                options={simplifications}
+                                getOptionLabel={(option) => option.name + ': ' + option.before + ' -> ' + option.after}
+                                renderInput={(params) => (
+                                    <Input
+                                        ref={params.InputProps.ref}
+                                        inputProps={params.inputProps}
+                                        placeholder="Search"
+                                        // sx={{ width: 600 }}
+                                        className="w-96 bg-white"
+                                    />
+                                )}
+                            />
+                        </Popper>
+                    </div>
+                </ClickAwayListener>
             </div>
         </>
     );
