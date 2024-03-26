@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Statement from './Statement';
 import { SymbolMap } from '../types';
 import { Box } from '@mui/material';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
 
 type StatementsProps = {
     symbolMap: SymbolMap;
@@ -10,9 +11,10 @@ type StatementsProps = {
 };
 
 const Statements: React.FC<StatementsProps> = (props) => {
-    const NUM_STATEMENTS = 2;
+    const DEFAULT_NUM_STATEMENTS = 2;
     const { symbolMap, setSymbol, changeSymbols } = props;
 
+    const [numStatements, setNumStatements] = useState<number>(DEFAULT_NUM_STATEMENTS);
     const [symbolMaps, setSymbolMaps] = useState<Map<number, Set<string>>>(new Map());
 
     useEffect(() => {
@@ -28,8 +30,8 @@ const Statements: React.FC<StatementsProps> = (props) => {
     }, [symbolMaps]);
 
     return (
-        <Box className="flex flex-col">
-            {Array.from({ length: NUM_STATEMENTS }).map((_, i) => (
+        <Box className="flex flex-col items-center">
+            {Array.from({ length: numStatements }).map((_, i) => (
                 <Statement
                     key={i}
                     index={i}
@@ -42,6 +44,11 @@ const Statements: React.FC<StatementsProps> = (props) => {
                     setSymbol={setSymbol}
                 />
             ))}
+            <AddCircleIcon
+                className="cursor-pointer hover:text-blue-500"
+                color="action"
+                onClick={() => setNumStatements(numStatements + 1)} 
+            />
         </Box>
     );
 };
