@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import './App.css'
 import { addStyles } from 'react-mathquill'
 import SymbolTable from './components/SymbolTable';
 import Statements from './components/Statements';

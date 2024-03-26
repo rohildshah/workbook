@@ -8,13 +8,14 @@ import { simplifyExpression, solveEquation } from 'mathsteps';
 import { SymbolMap, Simplification, Expression, Equation, KnownMap } from '../types';
 
 interface MathFieldProps {
+    index: number;
     symbolMap: SymbolMap;
     setSymbol: (symbol: string, value: number | undefined, given: boolean) => void;
     changeSymbols: (symbols: Set<string>) => void;
 }
 
 const Statement: React.FC<MathFieldProps> = (props) => {
-    const { symbolMap, setSymbol, changeSymbols } = props;
+    const { index, symbolMap, setSymbol, changeSymbols } = props;
     
     const [latex, setLatex] = useState<string>('');
     const [node, setNode] = useState<Expression | Equation | undefined>(undefined);
@@ -320,6 +321,7 @@ const Statement: React.FC<MathFieldProps> = (props) => {
                                 </Tooltip>
                             }
                         </Box>
+                        <Box id={"popper-anchor-" + index} position="relative" left="190px" top="25px" />
                         <EditableMathField
                             latex={latex}
                             onChange={(mathField) => { setLatex(mathField.latex()); }}
@@ -337,12 +339,21 @@ const Statement: React.FC<MathFieldProps> = (props) => {
                             //     console.log(target);
                             // }}
                             onClick={(e) => {
-                                setSearchAnchor(e.currentTarget);
+                                // setSearchAnchor(e.currentTarget);
+                                setSearchAnchor(document.getElementById('popper-anchor-' + index));
                             }}
                         />
                         <Popper
                             open={Boolean(searchAnchor)}
                             anchorEl={searchAnchor}
+                            // modifiers={[
+                            //     {
+                            //         name: 'offset',
+                            //         options: {
+                            //             offset: [105, 5],
+                            //         }
+                            //     }
+                            // ]}
                         >
                             <Autocomplete
                                 open

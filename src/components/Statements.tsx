@@ -32,6 +32,7 @@ const Statements: React.FC<StatementsProps> = (props) => {
             {Array.from({ length: NUM_STATEMENTS }).map((_, i) => (
                 <Statement
                     key={i}
+                    index={i}
                     symbolMap={symbolMap}
                     changeSymbols={(symbolMap: Set<string>) => {
                         setSymbolMaps((prevSymbolMaps: Map<number, Set<string>>) => {
