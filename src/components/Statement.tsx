@@ -28,6 +28,7 @@ const Statement: React.FC<StatementProps> = (props) => {
     const [searchAnchor, setSearchAnchor] = useState<null | HTMLElement>(null);
 
     const toLatex = (tree: math.MathNode) => {
+        // {parenthesis: 'all', implicit: 'show'}
         return tree.toTex()
             .replace(/~/g, '')
             .replace(/\\mathrm\{(\w+)\}/g, '$1');
@@ -321,6 +322,16 @@ const Statement: React.FC<StatementProps> = (props) => {
         evaluate(symbols);
     }, [symbolMap]);
 
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape'
+                || event.key === 'Tab') setSearchAnchor(null);
+        }
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     // useEffect(() => {
     //     if (!substitution || !node) return;
 
@@ -337,7 +348,24 @@ const Statement: React.FC<StatementProps> = (props) => {
     // }, [substitution]);
 
     return (
-        <Box className="flex flex-col mb-5">
+        <Box
+            className="flex flex-col mb-5"
+            onMouseUp={() => {
+                if (!substitution || !node) return;
+                if (substitution === node) return;
+
+                const transform = (node: math.MathNode) => {
+                    const { left: symbol, right: value } = substitution;
+                    return node.transform(n => n.equals(symbol) ? value : n);
+                }
+
+                const left = transform(node.left);
+                const right = node.right && transform(node.right);
+
+                const latex = right ? toLatex(left) + '=' + toLatex(right) : toLatex(left);
+                setLatex(latex);
+            }}
+        >
             <ClickAwayListener onClickAway={() => setSearchAnchor(null)}>
                 <Box className="flex justify-center items-center w-52">
                     <Box className="w-10">
@@ -353,7 +381,7 @@ const Statement: React.FC<StatementProps> = (props) => {
                             <Tooltip title="Substitute">
                                 <MoveDownIcon
                                     color="action"
-                                    className="mr-2"
+                                    className="mr-2 cursor-pointer hover:text-blue-500"
                                     onMouseDown={() => {
                                         // Check if equation
                                         if (!node || !node.right) return;
@@ -362,20 +390,6 @@ const Statement: React.FC<StatementProps> = (props) => {
                                         if (!math.isSymbolNode(node.left)) return;
                         
                                         setSubstitution(node);
-                                    }}
-                                    onMouseUp={() => {
-                                        if (!substitution || !node) return;
-                        
-                                        const transform = (node: math.MathNode) => {
-                                            const { left: symbol, right: value } = substitution;
-                                            return node.transform(n => n.equals(symbol) ? value : n);
-                                        }
-                        
-                                        const left = transform(node.left);
-                                        const right = node.right && transform(node.right);
-                        
-                                        const latex = right ? toLatex(left) + '=' + toLatex(right) : toLatex(left);
-                                        setLatex(latex);
                                     }}
                                 />
                             </Tooltip>
@@ -420,7 +434,7 @@ const Statement: React.FC<StatementProps> = (props) => {
                             multiple
                             value={[]}
                             onClose={() => {}}
-                            onChange={(_event, value, reason) => {
+                            onChange={(event, value, reason) => {
                                 if (reason !== 'selectOption') return;
                                 setLatex(value[0].after);
                             }}

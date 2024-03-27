@@ -3,6 +3,7 @@ import Statement from './Statement';
 import { Equation, SymbolMap } from '../types';
 import { Box } from '@mui/material';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
+import useMousePosition from '../hooks/useMousePosition';
 
 type StatementsProps = {
     symbolMap: SymbolMap;
@@ -14,9 +15,19 @@ const Statements: React.FC<StatementsProps> = (props) => {
     const DEFAULT_NUM_STATEMENTS = 2;
     const { symbolMap, setSymbol, changeSymbols } = props;
 
+    const mousePosition = useMousePosition();
     const [numStatements, setNumStatements] = useState<number>(DEFAULT_NUM_STATEMENTS);
     const [symbolMaps, setSymbolMaps] = useState<Map<number, Set<string>>>(new Map());
     const [substitution, setSubstitution] = useState<Equation>();
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setSubstitution(undefined);
+        }
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     useEffect(() => {
         const symbols: Set<string> = new Set();
@@ -52,6 +63,14 @@ const Statements: React.FC<StatementsProps> = (props) => {
                 color="action"
                 onClick={() => setNumStatements(numStatements + 1)} 
             />
+            <Box
+                position="absolute"
+                className="z-[9999] pointer-events-none"
+                left={mousePosition.x - 10}
+                top={mousePosition.y - 20}
+            >
+                    {substitution?.left.name}
+            </Box>
         </Box>
     );
 };
