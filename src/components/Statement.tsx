@@ -232,7 +232,11 @@ const Statement: React.FC<StatementProps> = (props) => {
             const value = math.evaluate(toString(lastStep.rightNode.toString()));
 
             if (symbolMap.get(symbol)?.given) return;
-            console.log(math.evaluate(toString(lastStep.rightNode)))
+            if (!math.isSymbolNode(lastStep.leftNode)) {
+                setWarning('Equation is false');
+                return;
+            }
+            
             setSymbol(symbol, value, false);
         }
 
@@ -243,7 +247,7 @@ const Statement: React.FC<StatementProps> = (props) => {
 
             if (!correct && givens.size == symbols.size - 1) { // False but try to fix
                 evaluateAndSetSymbol(givens);
-            } else if (!correct) { // False but can't fix
+            } else if (!correct && givens.size != symbols.size - 1) { // False but can't fix
                 setWarning('Equation is false');
             } else {
                 setWarning('');
